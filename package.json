@@ -12,7 +12,7 @@
   },
   "devDependencies": {},
   "scripts": {
-    "run": "node main.js"
+    "main": "node main.js"
   },
   "author": "Alain Vagner",
   "license": "MIT",
