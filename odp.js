@@ -39,9 +39,10 @@ function genTags(title, keywords) {
     })
     tags = tags.concat(keywords)
     tags = tags.map(t => { return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "") }) // remove accents
-    tags = tags.map(t => {return t.replace(/\./g, '')}) // remove special characters (dots for now) because udata removes them and we need to be able to compare
+    tags = tags.map(t => { return t.replace(/^[a-zA-Z]+\'/, '')}) // remove articles with apostrophe
+    tags = tags.map(t => { return t.replace(/[\.\']/g, '')}) // remove special characters because udata removes them and we need to be able to compare
     tags = [... new Set(tags)] // remove duplicates
-    tags = tags.filter(t => {return (t.length >= 3)})
+    tags = tags.filter(t => { return (t.length >= 3)})
     tags = tags.concat([ statecTag, 'statistics', 'statistiques'])
     return tags
 }

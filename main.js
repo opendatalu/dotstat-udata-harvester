@@ -62,14 +62,49 @@ function getKeywordsFromResources(resources) {
     return [...new Set(keywords)]
 }
 
+// not all topics are mapped to a dataset. We need to filter them
+function filterTopics(data) {
+    function getPathLength(path) {
+        return (path.split('|').length -1)
+    }
+
+    function pathCleanup(path) {
+        return path.replace(/^\d+\|/, '')
+    }
+
+    function countChildren(path, data) {
+        path = pathCleanup(path)
+        let count = 0
+        data.forEach(e => {
+            const val = pathCleanup(e.val)
+            if (val != path && val.startsWith(path)) {
+                count += 1
+            }
+        })
+        return count
+    }
+
+    let paths = data['facets']['Thèmes']['buckets']
+    paths = paths.map(e => {
+        e.children = countChildren(e.val, paths)
+        e.depth = getPathLength(e.val)
+        return e
+    })
+
+    // we keep only topics without children
+    return paths.filter(f => {return (f.children == 0)})
+    //return paths.filter(f => {return ((f.depth <3 && f.children == 0) || (f.depth == 3))})
+}
+
+
 getSyncedDatasets().then(d => {
     let odpMapping = {}
     d.data.map(e => {return [e.id, e.extras['harvest:remote_id']]}).forEach(tuple => { odpMapping[tuple[1]] = tuple[0] } )
     const odpIds = new Set(d.data.map(e => {return  e.extras['harvest:remote_id']}))
 
     getConfig().then(data => {
-        // FIXME: here we keep only topics of level 2, should be discussed, currently different
-        const topicsSet = new Set(data['facets']['Thèmes']['buckets'].filter(e => { return (e.val.split('|').length -1 == 2)}).map(e => {return e.val}))
+        const filtered = filterTopics(data).map(e => {return e.val})
+        const topicsSet = new Set(filtered)
         const topicsArr = [...topicsSet]
 
         // get the list of items that were added, deleted, changed
