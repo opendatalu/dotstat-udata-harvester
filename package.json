@@ -1,5 +1,5 @@
 {
-  "name": "od-statec",
+  "name": "dotstat-udata-harvester",
   "version": "1.0.0",
   "description": "",
   "main": "main.js",
@@ -14,7 +14,7 @@
   "scripts": {
     "main": "node main.js"
   },
-  "author": "Alain Vagner",
+  "author": "Information and Press Service",
   "license": "MIT",
   "type": "module"
 }

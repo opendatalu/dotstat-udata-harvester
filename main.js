@@ -6,19 +6,21 @@ dotenv.config()
 
 const changesEnabled = true
 
-// the dotstat platform has 2 interesting endpoints regarding metadata: /config and /search
+// this string prefixes a list of keywords in the dataflows description in .stat
+const kwPrefix = (process.env.dotstatKwPrefix !== undefined)?process.env.dotstatKwPrefix:"Mots-clés:"
+
+// the .stat platform has 2 interesting endpoints regarding metadata: /config and /search
 // the 2 following functions enable to get the data from these 2 endpoints
 async function getConfig() {
     try {
-        const res = await fetchThrottle(process.env.lustatURL+"/config", {
+        const res = await fetchThrottle(process.env.dotstatURL+"/api/config", {
         "credentials": "omit",
         "headers": {
             "Accept": "application/json, text/plain, */*",
             "Content-Type": "application/json;charset=utf-8"
         },
-        "body": "{\"lang\":\"fr\",\"facets\":{\"datasourceId\":[\"release\"]}}",
-        "method": "POST",
-        "mode": "cors"
+        "body": "{\"lang\":\""+process.env.dotstatLang+"\",\"facets\":{\"datasourceId\":[\""+process.env.dotstatDatasourceId+"\"]}}",
+        "method": "POST"
         })
         if (!res.ok) {
             res.text().then(t => { throw t})
@@ -32,13 +34,13 @@ async function getConfig() {
 
 async function getData(topic) {
     try {
-        const response = await fetchThrottle(process.env.lustatURL+"/search", {
+        const response = await fetchThrottle(process.env.dotstatURL+"/api/search", {
             "credentials": "omit",
             "headers": {
                 "Accept": "application/json, text/plain, */*",
                 "Content-Type": "application/json;charset=utf-8"
             },
-            "body": "{\"lang\":\"fr\",\"search\":\"\",\"facets\":{\"Thèmes\":[\""+topic+"\"], \"datasourceId\":[\"release\"]},\"rows\":10000,\"start\":0}",
+            "body": "{\"lang\":\""+process.env.dotstatLang+"\",\"search\":\"\",\"facets\":{\""+process.env.dotstatMainFacet+"\":[\""+topic+"\"], \"datasourceId\":[\""+process.env.dotstatDatasourceId+"\"]},\"rows\":10000,\"start\":0}",
             "method": "POST"
         })
         if (!response.ok) {
@@ -58,7 +60,7 @@ function getTopicLabel(topic) {
 
 // extract keywords from resources to include them on the dataset level 
 function getKeywordsFromResources(resources) {
-    const keywords = resources.map(f => {return f.description.split("Mots-clés:")[1]}).filter(f=> {return f!=undefined}).flatMap(f=> {return f.split(',')}).map(f=> {return f.trim().toLowerCase()}).map(f=>{return f.replace(/[\s\']/g, '-')})
+    const keywords = resources.map(f => {return f.description.split(kwPrefix)[1]}).filter(f=> {return f!=undefined}).flatMap(f=> {return f.split(',')}).map(f=> {return f.trim().toLowerCase()}).map(f=>{return f.replace(/[\s\']/g, '-')})
     return [...new Set(keywords)]
 }
 
@@ -84,7 +86,7 @@ function filterTopics(data) {
         return count
     }
 
-    let paths = data['facets']['Thèmes']['buckets']
+    let paths = data['facets'][process.env.dotstatMainFacet]['buckets']
     paths = paths.map(e => {
         e.children = countChildren(e.val, paths)
         e.depth = getPathLength(e.val)
@@ -93,9 +95,10 @@ function filterTopics(data) {
 
     // we keep only topics without children
     return paths.filter(f => {return (f.children == 0)})
-    //return paths.filter(f => {return ((f.depth <3 && f.children == 0) || (f.depth == 3))})
 }
 
+
+console.log((new Date()).toLocaleString())
 
 getSyncedDatasets().then(d => {
     let odpMapping = {}
@@ -149,38 +152,38 @@ getSyncedDatasets().then(d => {
                     // compare keywords
 
                     // WARNING: tags should always be present in an update request, otherwise they are wiped out (bug in udata?)
-                    const statecName = getTopicLabel(id)
+                    const dotstatName = getTopicLabel(id)
                     const odpName = dataset.title
-                    const statecTags = new Set(genTags(statecName, getKeywordsFromResources(resources[id])))
+                    const dotstatTags = new Set(genTags(dotstatName, getKeywordsFromResources(resources[id])))
                     const odpTags = new Set(dataset.tags)
 
-                    if (!eqSet(statecTags, odpTags)) {
+                    if (!eqSet(dotstatTags, odpTags)) {
                         console.log('Tags should be updated for', dataset.id)
-                        //console.log('old:', [...odpTags], 'new:', [...statecTags])
+                        //console.log('old:', [...odpTags], 'new:', [...dotstatTags])
                         if (changesEnabled){
-                            updateDataset(dataset.id, {'tags': [...statecTags]}).then(f => {console.log('Tags successfully updated for', dataset.id)}).catch(e=>{console.error(e)})
+                            updateDataset(dataset.id, {'tags': [...dotstatTags]}).then(f => {console.log('Tags successfully updated for', dataset.id)}).catch(e=>{console.error(e)})
                         }
                     }
 
                     // compare name
-                    if (statecName != odpName) {
+                    if (dotstatName != odpName) {
                         console.log('Title should be updated for', dataset.id)
-                        //console.log('old:', odpName, 'new:', statecName )
+                        //console.log('old:', odpName, 'new:', dotstatName )
                         if (changesEnabled) {
-                            updateDataset(dataset.id, {'title': statecName, 'tags': [...statecTags]}).then(f => {console.log('Title successfully updated for:', dataset.id)}).catch(e=>{console.error(e)})
+                            updateDataset(dataset.id, {'title': dotstatName, 'tags': [...dotstatTags]}).then(f => {console.log('Title successfully updated for:', dataset.id)}).catch(e=>{console.error(e)})
                         }
                     } 
 
                     // compare resources
-                    const statecResources = new Set(genResources(resources[id]).map(e => {return {"title": e.title, "description": e.description, "url": e.url}}))
+                    const dotstatResources = new Set(genResources(resources[id]).map(e => {return {"title": e.title, "description": e.description, "url": e.url}}))
                     const odpResources = new Set(dataset.resources.map(e => {return {"title": e.title, "description": e.description, "url": e.url}}))
-                    if (!eqResources(statecResources, odpResources)) {
+                    if (!eqResources(dotstatResources, odpResources)) {
                         console.log('Resources and decription should be updated for', dataset.id)
-                        //console.log('old:', odpResources, 'new:', statecResources)
+                        //console.log('old:', odpResources, 'new:', dotstatResources)
                         // update resources + desc
                         if (changesEnabled) {
                             genDescription(genResources(resources[id])).then(desc => {
-                                updateDataset(dataset.id, {'resources': genResources(resources[id]), 'description': desc, 'tags': [...statecTags] }).then(f => {console.log('Resources and description successfully updated for', dataset.id)}).catch(e=>{console.error(e)})
+                                updateDataset(dataset.id, {'resources': genResources(resources[id]), 'description': desc, 'tags': [...dotstatTags] }).then(f => {console.log('Resources and description successfully updated for', dataset.id)}).catch(e=>{console.error(e)})
                             })
                         }
 

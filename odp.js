@@ -7,13 +7,14 @@ dotenv.config()
 
 const odpURL = process.env.odpURL
 const odpAPIKey = process.env.odpAPIKey
-const statecOrgId = process.env.statecOrgId
-const statecTag = 'statec-sync'
+const orgId = process.env.orgId
+const syncTag = process.env.syncTag
+const descTemplate = './'+((process.env.descTemplate !== undefined)?process.env.descTemplate:'desc.ejs')
 
 async function getSyncedDatasets() {
     try {
         // FIXME: manage pagination, temporarily a large page size here
-        const res = await fetchThrottle(odpURL+"/datasets/?tag="+statecTag+"&page=0&page_size=200", {
+        const res = await fetchThrottle(odpURL+"/datasets/?tag="+syncTag+"&page=0&page_size=200&organization="+orgId, {
         "headers": {
             "Accept": "application/json, text/plain, */*",
             'X-API-KEY': odpAPIKey
@@ -30,9 +31,16 @@ async function getSyncedDatasets() {
     }    
 }
 
+// get a language code managed by keyword-extractor
+function kwExtractorLang(lang) {
+    const mapping = { 'en': 'english', 'es': 'spanish', 'pl': 'polish', 'de': 'german', 'fr': 'french', 'it': 'italian', 'nl': 'dutch', 'ro': 'romanian', 'ru': 'russian', 'pt': 'portuguese', 'sv': 'swedish', 'ar': 'arabic', 'fa': 'persian'} 
+    return (mapping[lang] !== undefined)?mapping[lang]:'english'
+}
+
+// generate tags for a dataset
 function genTags(title, keywords) {
     let tags = keyword_extractor.extract(title, {
-        language: 'french', 
+        language: kwExtractorLang(process.env.dotstatLang), 
         remove_digits: false,
         return_changed_case: true, 
         remove_duplicates: true
@@ -43,10 +51,11 @@ function genTags(title, keywords) {
     tags = tags.map(t => { return t.replace(/[\.\']/g, '')}) // remove special characters because udata removes them and we need to be able to compare
     tags = [... new Set(tags)] // remove duplicates
     tags = tags.filter(t => { return (t.length >= 3)})
-    tags = tags.concat([ statecTag, 'statistics', 'statistiques'])
+    tags = tags.concat([ syncTag, 'statistics', 'statistiques'])
     return tags
 }
 
+// generate resources for a dataset
 function genResources(resources) {
     return resources.map(r => {return {
         "description": r.description,
@@ -55,14 +64,15 @@ function genResources(resources) {
         "format": "html",
         "title": r.name,
         "type": "other",
-        "url": "https://lustat.statec.lu/vis?df%5Bds%5D=release&df%5Bid%5D="+r.dataflowId+"&df%5Bag%5D=LU1"
+        "url": process.env.dotstatDataflowURLPrefix+r.dataflowId
       }
     })
 }
 
+// generate the description of a dataset based on its resources
 async function genDescription(resources) {
     const p = new Promise((resolve,reject) => {
-        ejs.renderFile('./desc.ejs', {resources: resources.map(r => {return r.title}) }, function(err, desc){
+        ejs.renderFile(descTemplate, {resources: resources.map(r => {return r.title}) }, function(err, desc){
             if (err !== null) {
                 reject(err)
             }
@@ -80,11 +90,11 @@ async function createDataset(title, resources, remote_id, keywords =[]) {
         const dataset = {
             "description": desc, 
             "frequency": "unknown", 
-            "license": 'cc-zero', 
-            "organization": {"id": statecOrgId }, 
+            "license": process.env.license, 
+            "organization": {"id": orgId }, 
             "tags": tags,
             "title": title,
-            "extras": { "harvest:domain" : "lustat.statec.lu", "harvest:remote_id": remote_id }
+            "extras": { "harvest:domain" : process.env.dotstatURL, "harvest:remote_id": remote_id }
         }
         if (resources.length != 0) {
             dataset.resources = resources
