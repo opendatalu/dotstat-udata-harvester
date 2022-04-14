@@ -1,3 +1,11 @@
+<% if (resources.length == 1) { %>
+This dataset includes the following resource: 
+<%= resources[0] %>
+<% } else { %>
 This dataset includes the following resources: 
 <% resources.forEach(res => { %>
 - <%= res %><% }) %>
+<% } %>
+
+---
+Automatically synchronized from... 
