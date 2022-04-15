@@ -19,7 +19,6 @@ Copy the `.env-template` file into a file named `.env`. Adjust the following var
 - dotstatDatasourceId: .stat datasource id.
 - dotstatLang: .stat language code. Ex: "en"
 - descTemplate: template file to be used to generate a description for each dataset. This template is in ejs format. By default, `desc.ejs` will be used.
-- dotstatKwPrefix: we extract keywords from .stat dataflow descriptions. To do this, we identify this prefix in the description and get all the keywords which follow. Ex: the value of this variable would be "Keywords:" if in all dataflow descriptions we can find a similar text: "Keywords: kw1, kw2, kw3..."
 - callRateNrCalls: this setting and the following are related to rate limiting. This is the max number of calls per period. By default 5.
 - callRateDuration: this setting defines the duration of the period for rate limiting in milliseconds. By default 1000ms.
 

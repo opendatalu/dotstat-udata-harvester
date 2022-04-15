@@ -6,8 +6,6 @@ dotenv.config()
 
 const changesEnabled = true
 
-// this string prefixes a list of keywords in the dataflows description in .stat
-const kwPrefix = (process.env.dotstatKwPrefix !== undefined)?process.env.dotstatKwPrefix:"Mots-clés:"
 
 // the .stat platform has 2 interesting endpoints regarding metadata: /config and /search
 // the 2 following functions enable to get the data from these 2 endpoints
@@ -60,8 +58,103 @@ function getTopicLabel(topic) {
 
 // extract keywords from resources to include them on the dataset level 
 function getKeywordsFromResources(resources) {
-    const keywords = resources.map(f => {return f.description.split(kwPrefix)[1]}).filter(f=> {return f!=undefined}).flatMap(f=> {return f.split(',')}).map(f=> {return f.trim().toLowerCase()}).map(f=>{return f.replace(/[\s\']/g, '-')})
+    const keywords = resources.map(f => { 
+        let maybeKw = f.description.match(/[Mm]ots-cl[ée]s\s?:?\s*(.*?)\s*-/)
+        if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+                return maybeKw[1].toLowerCase().trim()
+        }
+        maybeKw = f.description.match(/[Mm]ots-cl[ée]s\s?:?\s*(.*?)$/)
+        if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+                return maybeKw[1].toLowerCase().trim()
+        }
+        maybeKw = f.description.match(/[Kk]eywords:?\s*(.*?)\s+-/)
+        if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+                return maybeKw[1].toLowerCase().trim()
+        }
+        maybeKw = f.description.match(/[Kk]eywords:?\s*(.*?)$/)
+        if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+                return maybeKw[1].toLowerCase().trim()
+        }                
+        console.log('Keywords not found in: ', f.description)
+        return undefined
+    }).filter(f=> {return f!=undefined}).flatMap(f=> {return f.split(',')}).map(f=> {return f.replace(/[:;\.]/g, '').trim().toLowerCase()}).map(f=>{return f.replace(/[\s\']/g, '-')})
     return [...new Set(keywords)]
+}
+
+function getFrequencyFromResources(resources) {
+    // FIXME: check if lang == fr
+    const mapping = {
+        "mensuelle":"monthly",
+        "mensuel":"monthly", 
+        "bimestrielle":"bimonthly", 
+        "bimestriel":"bimonthly",
+        "trimestrielle":"quarterly", 
+        "trimestriel":"quarterly",
+        "trois fois par an":"threeTimesAYear", 
+        "semestrielle":"semiannual",
+        "semestriel":"semiannual",
+        "bi-annuelle":"semiannual",
+        "biannuelle":"semiannual",
+        "bi-annuel":"semiannual",
+        "biannuel":"semiannual",
+        "annuelle": "annual",
+        "annuel": "annual",
+        "révision annuelle": "annual",
+        "semestrielle et annuelle": "annual",
+        "biennale":"biennial",
+        "biennal":"biennial",
+        "biénale": "biennal",
+        "bisannuelle":"biennial",
+        "bisannuel":"biennial",
+        "triennale": "triennial",
+        "triennal": "triennial", 
+        "quinquennale" : "quinquennial",
+        "quinquennal" : "quinquennial"
+    }
+    // every 10 years is not supported by udata
+
+    const order = ['unknown', 'monthly', 'bimonthly','quarterly', 'threeTimesAYear', 'semiannual', 'annual', 'biennial', 'triennial', 'quinquennial']
+
+    function bestFreq(a, b) {
+        if (order.indexOf(a) > order.indexOf(b)) {
+            return a
+        } else {
+            return b
+        }
+    }
+
+    let freqs = resources.map(f => {
+        let maybeFreq = f.description.match(/[Pp][ée]riodicit[ée]\s?:?\s+(.*?)\s+-/)
+        if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
+                return maybeFreq[1].toLowerCase().trim()
+        }
+        maybeFreq = f.description.match(/[Pp][ée]riodicit[ée]\s?:?\s+(.*?)$/)
+        if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
+                return maybeFreq[1].toLowerCase().trim()
+        }
+        maybeFreq = f.description.match(/[Ff]r[ée]quence\s?:?\s+(.*?)\s+-/)
+        if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
+                return maybeFreq[1].toLowerCase().trim()
+        }
+        maybeFreq = f.description.match(/[Ff]r[ée]quence\s?:?\s+(.*?)$/)
+        if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
+                return maybeFreq[1].toLowerCase().trim()
+        }
+        console.log('Frequency not found in: ', f.description)
+        return undefined
+    })
+    freqs = freqs.filter(f=> {return f!=undefined})
+    freqs = [...new Set(freqs)] // remove duplicates
+    freqs = freqs.map(e => { 
+        if (mapping[e] !== undefined) {
+            return mapping[e] 
+        } else {
+            console.log('unknown frequency:', e)
+            return 'unknown'
+        }
+    })
+    const freq = freqs.reduce(bestFreq, 'unknown')
+    return freqs
 }
 
 // not all topics are mapped to a dataset. We need to filter them
@@ -141,13 +234,13 @@ getSyncedDatasets().then(d => {
                 toAdd.forEach(id => {
                     let keywords = getKeywordsFromResources(resources[id])
                     const label = getTopicLabel(id)
-                    createDataset(label, resources[id], id, keywords).then(e => {console.log('Dataset successfully added for', id)}).catch(e=> console.error(e))
+                    createDataset(label, resources[id], id, keywords, getFrequencyFromResources(resources[id])).then(e => {console.log('Dataset successfully added', e.id)}).catch(e=> console.error(e))
                 })
             }
             // check if the rest should be modified
             rest.forEach(id => {
                 // get matching dataset from ODP
-                console.log('Checking updates for', id)
+                //console.log('Checking updates for', id)
                 getDataset(odpMapping[id]).then(dataset => {
                     // compare keywords
 
@@ -183,7 +276,7 @@ getSyncedDatasets().then(d => {
                         // update resources + desc
                         if (changesEnabled) {
                             genDescription(genResources(resources[id])).then(desc => {
-                                updateDataset(dataset.id, {'resources': genResources(resources[id]), 'description': desc, 'tags': [...dotstatTags] }).then(f => {console.log('Resources and description successfully updated for', dataset.id)}).catch(e=>{console.error(e)})
+                                updateDataset(dataset.id, {'resources': genResources(resources[id]), 'description': desc, 'tags': [...dotstatTags], 'frequency': getFrequencyFromResources(resources[id]) }).then(f => {console.log('Resources and description successfully updated for', dataset.id)}).catch(e=>{console.error(e)})
                             })
                         }
 

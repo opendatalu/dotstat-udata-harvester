@@ -82,7 +82,7 @@ async function genDescription(resources) {
     return p.then(d => {return d})    
 }
 
-async function createDataset(title, resources, remote_id, keywords =[]) {
+async function createDataset(title, resources, remote_id, keywords, frequency) {
     const tags = genTags(title, keywords)
     resources = genResources(resources)
 
@@ -94,6 +94,7 @@ async function createDataset(title, resources, remote_id, keywords =[]) {
             "organization": {"id": orgId }, 
             "tags": tags,
             "title": title,
+            "frequency": frequency,
             "extras": { "harvest:domain" : process.env.dotstatURL, "harvest:remote_id": remote_id }
         }
         if (resources.length != 0) {
