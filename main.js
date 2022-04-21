@@ -1,4 +1,4 @@
-import { getSyncedDatasets, createDataset, deleteDataset, getDataset, genTags, genResources, updateDataset, genDescription} from './odp.js'
+import { getSyncedDatasets, createDataset, deleteDataset, getDataset, genTags, genResources, updateDataset, genDescription, uploadCSV, updateResource, updateResourcesOrder, deleteResource} from './odp.js'
 import { eqSet, eqResources, fetchThrottle } from './utils.js'
 import dotenv from 'dotenv'
 
@@ -45,6 +45,26 @@ async function getData(topic) {
             response.text().then(t => { throw t})
         }
         return response.json()
+    } catch(e) {
+        console.error(e)
+        return {}
+    }
+}
+
+// export a dataflow as CSV 
+async function getCSV(id) {
+    try {
+        const response = await fetchThrottle(`${process.env.dotstatURL}/rest/data/LU1,${id}/all?dimensionAtObservation=AllDimensions`, {
+            "headers": {
+                "Accept": "application/vnd.sdmx.data+csv;urn=true;file=true;labels=both",
+                "Accept-Language": process.env.dotstatLang
+            },
+            "method": "GET"
+        })
+        if (!response.ok) {
+            response.text().then(t => { throw t})
+        }
+        return response.text()        
     } catch(e) {
         console.error(e)
         return {}
@@ -190,100 +210,131 @@ function filterTopics(data) {
     return paths.filter(f => {return (f.children == 0)})
 }
 
+async function asCreateDataset(resources, id) {
+    try {
+        const keywords = getKeywordsFromResources(resources[id])
+        const label = getTopicLabel(id)
+        const ds = await createDataset(label, resources[id], id, keywords, getFrequencyFromResources(resources[id]))
+        await updateResourcesWithCSV(resources, id, ds)
 
-console.log((new Date()).toLocaleString())
+        console.log('Dataset successfully created', ds.id)
+    } catch (e) {
+        console.error('Error creating dataset ', e, id)
+    }
+}
 
-getSyncedDatasets().then(d => {
+async function asUpdateDataset(resources, id, dataset, tags) {
+    try {
+        const desc = await genDescription(genResources(resources[id]))
+        await Promise.all(dataset.resources.map(res => {return deleteResource(dataset.id, res.id)}))
+        const ds = await updateDataset(dataset.id, { 'resources': genResources(resources[id]), 'description': desc, 'tags': [...tags], 'frequency': getFrequencyFromResources(resources[id]) })
+        await updateResourcesWithCSV(resources, id, ds)
+            
+        console.log('Resources and description successfully updated for', dataset.id)
+    } catch (e) {
+        console.error('Error updating dataset', e, dataset.id)
+    }
+}
+
+async function updateResourcesWithCSV(resources, id, ds) {
+    const r = await Promise.all(resources[id].map(df => { return getCSV(df['dataflowId']) }))
+    const uploaded = await Promise.all(resources[id].map((df, i) => { return [df.dataflowId+'.csv', r[i]] }).map(param => { return uploadCSV(param[0], param[1], ds.id)}))
+    await Promise.all(resources[id].map((df, i) => { return updateResource(ds.id, uploaded[i].id, df.name, df.description)} ))
+    const updated_ds = await getDataset(ds.id)
+    const order = updated_ds.resources.sort((a,b) => { return (a.title != b.title)?(a.title.localeCompare(b.title)):(b.format.localeCompare(a.format)) }).map(a => a.id)
+    await updateResourcesOrder(ds.id, order)
+}
+
+async function main() {
+    console.log((new Date()).toLocaleString(), 'Syncing starts...')
+
+    const d = await getSyncedDatasets()
     let odpMapping = {}
     d.data.map(e => {return [e.id, e.extras['harvest:remote_id']]}).forEach(tuple => { odpMapping[tuple[1]] = tuple[0] } )
     const odpIds = new Set(d.data.map(e => {return  e.extras['harvest:remote_id']}))
 
-    getConfig().then(data => {
-        const filtered = filterTopics(data).map(e => {return e.val})
-        const topicsSet = new Set(filtered)
-        const topicsArr = [...topicsSet]
+    const data = await getConfig()
+    const filtered = filterTopics(data).map(e => {return e.val})
+    const topicsSet = new Set(filtered)
+    const topicsArr = [...topicsSet]
 
-        // get the list of items that were added, deleted, changed
-        const toDelete = new Set([...odpIds].filter(x => !topicsSet.has(x)))
-        const toAdd = new Set(topicsArr.filter(x => !odpIds.has(x)))
-        const rest = new Set([...odpIds].filter(x => topicsSet.has(x)))
+    // get the list of items that were added, deleted, changed
+    const toDelete = new Set([...odpIds].filter(x => !topicsSet.has(x)))
+    const toAdd = new Set(topicsArr.filter(x => !odpIds.has(x)))
+    const rest = new Set([...odpIds].filter(x => topicsSet.has(x)))
 
-        console.log('to be deleted', [...toDelete].length)
-        console.log('to be added', [...toAdd].length)
-        console.log('check for updates', [...rest].length)
+    console.log('to be deleted', [...toDelete].length)
+    console.log('to be added', [...toAdd].length)
+    console.log('check for updates', [...rest].length)
 
-        // delete what needs to be deleted
-        if (changesEnabled) {
-            toDelete.forEach(e => {
-               deleteDataset(odpMapping[e]).then(a => { console.log('Dataset deletion', (a)?'succeeded': 'failed', 'for', e)})
-            })
+    // delete what needs to be deleted
+    if (changesEnabled) {
+        for (const e of toDelete) {
+            const id = odpMapping[e]
+            const result = await deleteDataset(id)
+            console.log('Dataset deletion', (result)?'succeeded': 'failed', 'for', id)
+        }
+    }
+
+    const r = await Promise.all(topicsArr.map(t => {return getData(t)}))
+    const dataflows = r.map(d => d.dataflows)
+
+    // get resources for each topic
+    let resources = {}
+    for (let i=0; i<topicsArr.length; i++) {
+        resources[topicsArr[i]] = dataflows[i]
+    }
+
+    // add what needs to be added
+
+    if (changesEnabled) {
+        for (const id of toAdd) {
+            await asCreateDataset(resources, id)
+        }
+    }
+    // check if the rest should be modified
+    for (const id of rest) {
+        // get matching dataset from ODP
+        //console.log('Checking updates for', id)
+        const dataset = await getDataset(odpMapping[id])
+        // compare keywords
+
+        // WARNING: tags should always be present in an update request, otherwise they are wiped out (bug in udata?)
+        const dotstatName = getTopicLabel(id)
+        const odpName = dataset.title
+        const dotstatTags = new Set(genTags(dotstatName, getKeywordsFromResources(resources[id])))
+        const odpTags = new Set(dataset.tags)
+
+        if (!eqSet(dotstatTags, odpTags)) {
+            console.log('Tags should be updated for', dataset.id)
+            //console.log('old:', [...odpTags], 'new:', [...dotstatTags])
+            if (changesEnabled){
+                updateDataset(dataset.id, {'tags': [...dotstatTags]}).then(f => {console.log('Tags successfully updated for', dataset.id)}).catch(e=>{console.error(e)})
+            }
         }
 
-        Promise.all(topicsArr.map(t => {return getData(t)})).then(r => { 
-            const dataflows = r.map(d => d.dataflows)
-
-            // get resources for each topic
-            let resources = {}
-            for (let i=0; i<topicsArr.length; i++) {
-                resources[topicsArr[i]] = dataflows[i]
-            }
-
-            // add what needs to be added
-
+        // compare name
+        if (dotstatName != odpName) {
+            console.log('Title should be updated for', dataset.id)
+            //console.log('old:', odpName, 'new:', dotstatName )
             if (changesEnabled) {
-                toAdd.forEach(id => {
-                    let keywords = getKeywordsFromResources(resources[id])
-                    const label = getTopicLabel(id)
-                    createDataset(label, resources[id], id, keywords, getFrequencyFromResources(resources[id])).then(e => {console.log('Dataset successfully added', e.id)}).catch(e=> console.error(e))
-                })
+                updateDataset(dataset.id, {'title': dotstatName, 'tags': [...dotstatTags]}).then(f => {console.log('Title successfully updated for:', dataset.id)}).catch(e=>{console.error(e)})
             }
-            // check if the rest should be modified
-            rest.forEach(id => {
-                // get matching dataset from ODP
-                //console.log('Checking updates for', id)
-                getDataset(odpMapping[id]).then(dataset => {
-                    // compare keywords
+        } 
 
-                    // WARNING: tags should always be present in an update request, otherwise they are wiped out (bug in udata?)
-                    const dotstatName = getTopicLabel(id)
-                    const odpName = dataset.title
-                    const dotstatTags = new Set(genTags(dotstatName, getKeywordsFromResources(resources[id])))
-                    const odpTags = new Set(dataset.tags)
+        // compare resources
+        const dotstatResources = new Set(genResources(resources[id]).map(e => {return {"title": e.title, "description": e.description, "url": e.url}}))
+        const odpResources = new Set(dataset.resources.filter(e => {return e.format == 'html'}).map(e => {return {"title": e.title, "description": e.description, "url": e.url}}))
+        if (!eqResources(dotstatResources, odpResources)) {
+            console.log('Resources and decription should be updated for', dataset.id)
+            //console.log('old:', odpResources, 'new:', dotstatResources)
+            // update resources + desc
+            if (changesEnabled) {
+                await asUpdateDataset(resources, id, dataset, dotstatTags)
+            }
 
-                    if (!eqSet(dotstatTags, odpTags)) {
-                        console.log('Tags should be updated for', dataset.id)
-                        //console.log('old:', [...odpTags], 'new:', [...dotstatTags])
-                        if (changesEnabled){
-                            updateDataset(dataset.id, {'tags': [...dotstatTags]}).then(f => {console.log('Tags successfully updated for', dataset.id)}).catch(e=>{console.error(e)})
-                        }
-                    }
+        } 
+    }
+}
 
-                    // compare name
-                    if (dotstatName != odpName) {
-                        console.log('Title should be updated for', dataset.id)
-                        //console.log('old:', odpName, 'new:', dotstatName )
-                        if (changesEnabled) {
-                            updateDataset(dataset.id, {'title': dotstatName, 'tags': [...dotstatTags]}).then(f => {console.log('Title successfully updated for:', dataset.id)}).catch(e=>{console.error(e)})
-                        }
-                    } 
-
-                    // compare resources
-                    const dotstatResources = new Set(genResources(resources[id]).map(e => {return {"title": e.title, "description": e.description, "url": e.url}}))
-                    const odpResources = new Set(dataset.resources.map(e => {return {"title": e.title, "description": e.description, "url": e.url}}))
-                    if (!eqResources(dotstatResources, odpResources)) {
-                        console.log('Resources and decription should be updated for', dataset.id)
-                        //console.log('old:', odpResources, 'new:', dotstatResources)
-                        // update resources + desc
-                        if (changesEnabled) {
-                            genDescription(genResources(resources[id])).then(desc => {
-                                updateDataset(dataset.id, {'resources': genResources(resources[id]), 'description': desc, 'tags': [...dotstatTags], 'frequency': getFrequencyFromResources(resources[id]) }).then(f => {console.log('Resources and description successfully updated for', dataset.id)}).catch(e=>{console.error(e)})
-                            })
-                        }
-
-                    } 
-                }).catch(e => console.error(e))
-            })
-        }).catch(e => { console.error(e) })
-    }).catch(e => {console.error(e)})
-}).catch(e => {console.error(e)})
-
+main().then(() => {console.log((new Date()).toLocaleString(), 'Sync successful')}).catch(e => {console.error(e)})

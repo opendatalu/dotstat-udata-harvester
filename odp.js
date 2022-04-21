@@ -2,6 +2,7 @@ import ejs from 'ejs'
 import keyword_extractor from 'keyword-extractor'
 import dotenv from 'dotenv'
 import { fetchThrottle } from './utils.js'
+import { FormData, File, fileFromSync  } from 'node-fetch'
 
 dotenv.config()
 
@@ -63,7 +64,7 @@ function genResources(resources) {
         "filetype": "remote",
         "format": "html",
         "title": r.name,
-        "type": "other",
+        "type": "main",
         "url": process.env.dotstatDataflowURLPrefix+r.dataflowId
       }
     })
@@ -191,6 +192,97 @@ async function updateDataset(id, payload) {
     }    
 }
 
-export { getSyncedDatasets, getDataset, createDataset, deleteDataset, genTags, genResources, updateDataset, genDescription }
+
+async function uploadCSV(filename, data, ds_id) {
+    try {
+        // uuid, filename, size, file*
+        const formData = new FormData()
+        const file = new File([data], filename, {'type': 'text/csv'})
+
+        formData.set('filename', filename)
+        formData.set('file', file, filename)
+
+        const res = await fetchThrottle(odpURL+'/datasets/'+ds_id+'/upload/', {
+        "headers": {
+            "Accept": "application/json",
+            "Cache-Control": "no-cache",
+            'X-API-KEY': odpAPIKey
+        },
+        "body": formData,
+        "method": "POST"
+        })
+        if (!res.ok) {
+            res.text().then(t => { throw t})
+        }
+        return res.json()
+    } catch (e) {
+        console.error(e)
+        return {}
+    }
+
+}
+
+async function updateResource(ds_id, res_id, title, desc) {
+    try {
+        const body = {'title': title, 'description': desc}
+        const res = await fetchThrottle(`${odpURL}/datasets/${ds_id}/resources/${res_id}/`, {
+            "headers": {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                'X-API-KEY': odpAPIKey
+            },
+            "body": JSON.stringify(body),
+            "method": "PUT"
+        })
+        if (!res.ok) {
+            res.text().then(t => { throw t})
+        }
+        return res.json()        
+    } catch (e) {
+        console.error(e)
+        return {}
+    }
+}
+
+async function deleteResource(ds_id, res_id) {
+    try {
+        const res = await fetchThrottle(`${odpURL}/datasets/${ds_id}/resources/${res_id}/`, {
+            "headers": {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                'X-API-KEY': odpAPIKey
+            },
+            "method": "DELETE"
+        })
+        return res.ok        
+    } catch (e) {
+        console.error(e)
+        return {}
+    }    
+}
+
+async function updateResourcesOrder(ds_id, order) {
+    try {
+        const res = await fetchThrottle(`${odpURL}/datasets/${ds_id}/resources/`, {
+            "headers": {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                'X-API-KEY': odpAPIKey
+            },
+            "body": JSON.stringify(order),
+            "method": "PUT"
+        })
+        if (!res.ok) {
+            res.text().then(t => { throw t})
+        }
+        return res.json()        
+    } catch (e) {
+        console.error(e)
+        return {}
+    }    
+}
+
+
+export { getSyncedDatasets, getDataset, createDataset, deleteDataset, genTags, genResources, updateDataset, genDescription, uploadCSV, updateResource, updateResourcesOrder, deleteResource }
 
 

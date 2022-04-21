@@ -19,7 +19,7 @@ Copy the `.env-template` file into a file named `.env`. Adjust the following var
 - dotstatDatasourceId: .stat datasource id.
 - dotstatLang: .stat language code. Ex: "en"
 - descTemplate: template file to be used to generate a description for each dataset. This template is in ejs format. By default, `desc.ejs` will be used.
-- callRateNrCalls: this setting and the following are related to rate limiting. This is the max number of calls per period. By default 5.
+- callRateNrCalls: this setting and the following are related to rate limiting. This is the max number of calls per period. By default 1.
 - callRateDuration: this setting defines the duration of the period for rate limiting in milliseconds. By default 1000ms.
 
 ## Run
