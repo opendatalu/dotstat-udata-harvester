@@ -5,7 +5,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const changesEnabled = true
-
+const syncCSV = false
 
 // the .stat platform has 2 interesting endpoints regarding metadata: /config and /search
 // the 2 following functions enable to get the data from these 2 endpoints
@@ -215,7 +215,9 @@ async function asCreateDataset(resources, id) {
         const keywords = getKeywordsFromResources(resources[id])
         const label = getTopicLabel(id)
         const ds = await createDataset(label, resources[id], id, keywords, getFrequencyFromResources(resources[id]))
-        await updateResourcesWithCSV(resources, id, ds)
+        if (syncCSV) {
+            await updateResourcesWithCSV(resources, id, ds)
+        }
 
         console.log('Dataset successfully created', ds.id)
     } catch (e) {
@@ -228,7 +230,9 @@ async function asUpdateDataset(resources, id, dataset, tags) {
         const desc = await genDescription(genResources(resources[id]))
         await Promise.all(dataset.resources.map(res => {return deleteResource(dataset.id, res.id)}))
         const ds = await updateDataset(dataset.id, { 'resources': genResources(resources[id]), 'description': desc, 'tags': [...tags], 'frequency': getFrequencyFromResources(resources[id]) })
-        await updateResourcesWithCSV(resources, id, ds)
+        if (syncCSV) {
+            await updateResourcesWithCSV(resources, id, ds)
+        }
             
         console.log('Resources and description successfully updated for', dataset.id)
     } catch (e) {
