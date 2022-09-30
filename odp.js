@@ -15,7 +15,7 @@ const descTemplate = './'+((process.env.descTemplate !== undefined)?process.env.
 async function getSyncedDatasets() {
     try {
         // FIXME: manage pagination, temporarily a large page size here
-        const res = await fetchThrottle(odpURL+"/datasets/?tag="+syncTag+"&page=0&page_size=200&organization="+orgId, {
+        const res = await fetchThrottle(odpURL+"/datasets/?tag="+syncTag+"&page=1&page_size=200&organization="+orgId, {
         "headers": {
             "Accept": "application/json, text/plain, */*",
             'X-API-KEY': odpAPIKey
@@ -51,7 +51,7 @@ function genTags(title, keywords) {
     tags = tags.map(t => { return t.replace(/^[a-zA-Z]+\'/, '')}) // remove articles with apostrophe
     tags = tags.map(t => { return t.replace(/[\.\']/g, '')}) // remove special characters because udata removes them and we need to be able to compare
     tags = [... new Set(tags)] // remove duplicates
-    tags = tags.filter(t => { return (t.length >= 3)})
+    tags = tags.filter(t => { return (t.length >= 3 && t.length <= 96)})
     tags = tags.concat([ syncTag, 'statistics', 'statistiques'])
     return tags
 }
@@ -96,7 +96,14 @@ async function createDataset(title, resources, remote_id, keywords, frequency) {
             "tags": tags,
             "title": title,
             "frequency": frequency,
-            "extras": { "harvest:domain" : process.env.dotstatURL, "harvest:remote_id": remote_id }
+            "extras": { "harvest:domain" : process.env.dotstatURL, "harvest:remote_id": remote_id },
+            "spatial": {
+                "geom": null,
+                "granularity": "country",
+                "zones": [
+                  "country:lu"
+                ]
+            }
         }
         if (resources.length != 0) {
             dataset.resources = resources
