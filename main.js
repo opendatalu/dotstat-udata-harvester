@@ -77,7 +77,7 @@ function getTopicLabel(topic) {
 }
 
 // extract keywords from resources to include them on the dataset level 
-function getKeywordsFromResources(resources) {
+function getKeywordsFromResources(resources, id) {
     const keywords = resources.map(f => { 
         let maybeKw = f.description.match(/[Mm]ots-cl[ée]s\s?:?\s*(.*?)\s*-/)
         if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
@@ -95,7 +95,7 @@ function getKeywordsFromResources(resources) {
         if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
                 return maybeKw[1].toLowerCase().trim()
         }                
-        console.log('Keywords not found in: ', f.description)
+        console.log('Keywords not found in: ', id, 'desc:', f.description)
         return undefined
     }).filter(f=> {return f!=undefined}).flatMap(f=> {return f.split(',')}).map(f=> {return f.replace(/[:;\.]/g, '').trim().toLowerCase()}).map(f=>{return f.replace(/[\s\']/g, '-')})
     return [...new Set(keywords)]
@@ -212,7 +212,7 @@ function filterTopics(data) {
 
 async function asCreateDataset(resources, id) {
     try {
-        const keywords = getKeywordsFromResources(resources[id])
+        const keywords = getKeywordsFromResources(resources[id], id)
         const label = getTopicLabel(id)
         const ds = await createDataset(label, resources[id], id, keywords, getFrequencyFromResources(resources[id]))
         if (syncCSV) {
@@ -306,7 +306,7 @@ async function main() {
         // WARNING: tags should always be present in an update request, otherwise they are wiped out (bug in udata?)
         const dotstatName = getTopicLabel(id)
         const odpName = dataset.title
-        const dotstatTags = new Set(genTags(dotstatName, getKeywordsFromResources(resources[id])))
+        const dotstatTags = new Set(genTags(dotstatName, getKeywordsFromResources(resources[id], id)))
         const odpTags = new Set(dataset.tags)
 
         if (!eqSet(dotstatTags, odpTags)) {
