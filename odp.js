@@ -15,6 +15,7 @@ const descTemplate = './'+((process.env.descTemplate !== undefined)?process.env.
 async function getSyncedDatasets() {
     try {
         // FIXME: manage pagination, temporarily a large page size here
+        //console.log(odpURL+"/datasets/?tag="+syncTag+"&page=1&page_size=200&organization="+orgId)
         const res = await fetchThrottle(odpURL+"/datasets/?tag="+syncTag+"&page=1&page_size=200&organization="+orgId, {
         "headers": {
             "Accept": "application/json, text/plain, */*",
@@ -111,6 +112,7 @@ async function createDataset(title, resources, remote_id, keywords, frequency) {
         if (resources.length != 0) {
             dataset.resources = resources
         }
+        //console.log(JSON.stringify(dataset))
         return createDatasetFromJSON(dataset)
     })
 }
