@@ -96,7 +96,7 @@ async function createDataset(title, resources, remote_id, keywords, frequency) {
             "tags": tags,
             "title": title,
             "frequency": frequency,
-            "extras": { "harvest:domain" : process.env.dotstatURL, "harvest:remote_id": remote_id },
+            "extras": { "dotstat_id": remote_id },
             "spatial": {
                 "geom": null,
                 "granularity": "country",

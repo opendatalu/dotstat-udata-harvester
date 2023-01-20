@@ -255,8 +255,8 @@ async function main() {
 
     const d = await getSyncedDatasets()
     let odpMapping = {}
-    d.data.map(e => {return [e.id, e.extras['harvest:remote_id']]}).forEach(tuple => { odpMapping[tuple[1]] = tuple[0] } )
-    const odpIds = new Set(d.data.map(e => {return  e.extras['harvest:remote_id']}))
+    d.data.map(e => {return [e.id, e.extras['dotstat_id']]}).forEach(tuple => { odpMapping[tuple[1]] = tuple[0] } )
+    const odpIds = new Set(d.data.map(e => {return  e.extras['dotstat_id']}))
 
     const data = await getConfig()
     const filtered = filterTopics(data).map(e => {return e.val})
