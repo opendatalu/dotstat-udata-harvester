@@ -123,13 +123,14 @@ function getFrequencyFromResources(resources) {
         "semestrielle et annuelle": "annual",
         "biennale":"biennial",
         "biennal":"biennial",
-        "biénale": "biennal",
+        "biénale": "biennial",
         "bisannuelle":"biennial",
         "bisannuel":"biennial",
         "triennale": "triennial",
         "triennal": "triennial", 
         "quinquennale" : "quinquennial",
-        "quinquennal" : "quinquennial"
+        "quinquennal" : "quinquennial",
+        "variable": "irregular"
     }
     // every 10 years is not supported by udata
 
