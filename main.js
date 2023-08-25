@@ -1,6 +1,7 @@
 import { getSyncedDatasets, createDataset, deleteDataset, getDataset, genTags, genResources, updateDataset, genDescription, uploadCSV, updateResource, updateResourcesOrder, deleteResource} from './odp.js'
 import { eqSet, eqResources, fetchThrottle } from './utils.js'
 import dotenv from 'dotenv'
+import process from 'node:process';
 
 dotenv.config()
 
@@ -342,4 +343,4 @@ async function main() {
     }
 }
 
-main().then(() => {console.log((new Date()).toLocaleString(), 'Sync successful')}).catch(e => {console.error(e)})
+main().then(() => {console.log((new Date()).toLocaleString(), 'Sync successful')}).catch(e => {console.error(e); process.exitCode = 1;})
