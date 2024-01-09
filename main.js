@@ -288,6 +288,11 @@ async function main () {
   console.log('to be added', [...toAdd].length)
   console.log('check for updates', [...rest].length)
 
+  // sanity check
+  if ([...toAdd].length === 0 && [...rest].length === 0 && [...toDelete].length > 100) {
+    throw new Error('Too many datasets to be deleted, stopping there...')
+  }
+
   // delete what needs to be deleted
   if (changesEnabled) {
     for (const e of toDelete) {
