@@ -102,7 +102,6 @@ function getKeywordsFromResources (resources, id) {
 }
 
 function getFrequencyFromResources (resources) {
-  // FIXME: check if lang == fr
   const mapping = {
     mensuelle: 'monthly',
     mensuel: 'monthly',
@@ -120,7 +119,7 @@ function getFrequencyFromResources (resources) {
     annuelle: 'annual',
     annuel: 'annual',
     'révision annuelle': 'annual',
-    'semestrielle et annuelle': 'annual',
+    yearly: 'annual',
     biennale: 'biennial',
     biennal: 'biennial',
     biénale: 'biennial',
@@ -145,37 +144,53 @@ function getFrequencyFromResources (resources) {
   }
 
   let freqs = resources.map(f => {
-    let maybeFreq = f.description.match(/[Pp][ée]riodicit[ée]\s?:?\s+(.*?)\s+-/)
+    let maybeFreq = f.description.match(/[Pp][ée]riodicit[éey]\s?:?\s+(.*?)\s+-/)
     if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
       return maybeFreq[1].toLowerCase().trim()
     }
-    maybeFreq = f.description.match(/[Pp][ée]riodicit[ée]\s?:?\s+(.*?)$/)
+    maybeFreq = f.description.match(/[Pp][ée]riodicit[éey]\s?:?\s+(.*?)$/)
     if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
       return maybeFreq[1].toLowerCase().trim()
     }
-    maybeFreq = f.description.match(/[Ff]r[ée]quence\s?:?\s+(.*?)\s+-/)
+    maybeFreq = f.description.match(/[Ff]r[ée]quenc[ey]\s?:?\s+(.*?)\s+-/)
     if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
       return maybeFreq[1].toLowerCase().trim()
     }
-    maybeFreq = f.description.match(/[Ff]r[ée]quence\s?:?\s+(.*?)$/)
+    maybeFreq = f.description.match(/[Ff]r[ée]quenc[ey]\s?:?\s+(.*?)$/)
     if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
       return maybeFreq[1].toLowerCase().trim()
     }
+
     console.log('Frequency not found in: ', f.description)
     return undefined
   })
+  // manage multiple frequencies (ex: annuelle & mensuelle)
+  freqs = freqs.flatMap(f => {
+    if (f.includes('&')) {
+      return f.split('&').map(e => { return e.trim() })
+    } else if (f.includes(' et ')) {
+      return f.split(' et ').map(e => { return e.trim() })
+    } else {
+      return f
+    }
+  })
+
   freqs = freqs.filter(f => { return f !== undefined })
   freqs = [...new Set(freqs)] // remove duplicates
   freqs = freqs.map(e => {
     if (mapping[e] !== undefined) {
+      // français
       return mapping[e]
+    } else if (order.includes(e)) {
+      // anglais
+      return e
     } else {
       console.log('unknown frequency:', e)
       return 'unknown'
     }
   })
   const freq = freqs.reduce(bestFreq, 'unknown')
-  return freqs
+  return freq
 }
 
 // not all topics are mapped to a dataset. We need to filter them

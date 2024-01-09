@@ -88,7 +88,7 @@ async function genDescription (resources) {
   return p.then(d => { return d })
 }
 
-async function createDataset (title, resources, remoteId, keywords, frequency = 'unknown') {
+async function createDataset (title, resources, remoteId, keywords, frequency) {
   const tags = genTags(title, keywords)
   resources = genResources(resources)
 
