@@ -3,3 +3,5 @@ todo.txt
 .env
 desc-statec.ejs
 log.txt
+.env.*
+!.env-template
