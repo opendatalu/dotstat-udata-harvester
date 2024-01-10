@@ -231,9 +231,39 @@ async function uploadCSV (filename, data, dsId) {
   }
 }
 
-async function updateResource (dsId, resId, title, desc) {
+async function createResource (dsId, title, description, url) {
   try {
-    const body = { title, description: desc }
+    const body = {
+      description,
+      filesize: 0,
+      filetype: 'remote',
+      format: 'html',
+      title,
+      type: 'main',
+      url
+    }
+    const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/`, {
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-API-KEY': odpAPIKey
+      },
+      body: JSON.stringify(body),
+      method: 'POST'
+    })
+    if (!res.ok) {
+      res.text().then(t => { throw t })
+    }
+    return res.json()
+  } catch (e) {
+    console.error(e)
+    return {}
+  }
+}
+
+async function updateResource (dsId, resId, title, description) {
+  try {
+    const body = { title, description }
     const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/${resId}/`, {
       headers: {
         Accept: 'application/json',
@@ -291,4 +321,4 @@ async function updateResourcesOrder (dsId, order) {
   }
 }
 
-export { getSyncedDatasets, getDataset, createDataset, deleteDataset, genTags, genResources, updateDataset, genDescription, uploadCSV, updateResource, updateResourcesOrder, deleteResource }
+export { getSyncedDatasets, getDataset, createDataset, deleteDataset, genTags, genResources, updateDataset, genDescription, uploadCSV, createResource, updateResource, updateResourcesOrder, deleteResource }

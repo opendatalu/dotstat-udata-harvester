@@ -1,4 +1,4 @@
-import { getSyncedDatasets, createDataset, deleteDataset, getDataset, genTags, genResources, updateDataset, genDescription, uploadCSV, updateResource, updateResourcesOrder, deleteResource } from './odp.js'
+import { getSyncedDatasets, createDataset, deleteDataset, getDataset, genTags, genResources, updateDataset, genDescription, uploadCSV, updateResource, updateResourcesOrder, deleteResource, createResource } from './odp.js'
 import { eqSet, eqResources, fetchThrottle } from './utils.js'
 import dotenv from 'dotenv'
 import process from 'node:process'
@@ -245,8 +245,7 @@ async function asCreateDataset (resources, id) {
 async function asUpdateDataset (resources, id, dataset, tags) {
   try {
     const desc = await genDescription(genResources(resources[id]))
-    await Promise.all(dataset.resources.map(res => { return deleteResource(dataset.id, res.id) }))
-    const ds = await updateDataset(dataset.id, { resources: genResources(resources[id]), description: desc, tags: [...tags], frequency: getFrequencyFromResources(resources[id]) })
+    const ds = await updateDataset(dataset.id, { description: desc, tags: [...tags], frequency: getFrequencyFromResources(resources[id]) })
     if (syncCSV) {
       await updateResourcesWithCSV(resources, id, ds)
     }
@@ -351,11 +350,69 @@ async function main () {
     // compare resources
     const dotstatResources = new Set(genResources(resources[id]).map(e => { return { title: e.title, description: e.description, url: e.url } }))
     const odpResources = new Set(dataset.resources.filter(e => { return e.format === 'html' }).map(e => { return { title: e.title, description: e.description, url: e.url } }))
+
     if (!eqResources(dotstatResources, odpResources)) {
-      console.log('Resources and decription should be updated for', dataset.id)
-      // console.log('old:', odpResources, 'new:', dotstatResources)
-      // update resources + desc
+      console.log('Resources and description should be updated for', dataset.id)
+
+      // prepare all data to detect what should be deleted, added, updated
+      // the comparisons are done on the urls of .stat resources
+      const dotstatUrls = [...dotstatResources].map(e => e.url)
+      const odpUrls = [...odpResources].map(e => e.url)
+
+      const dotstatUrlsSet = new Set([...dotstatUrls])
+      const odpUrlsSet = new Set([...odpUrls])
+
+      // mappings url => resource for .stat and udata
+      const dotstatMapping = {}
+      Array.from(dotstatResources).map(e => {
+        dotstatMapping[e.url] = e
+        return e
+      })
+      const odpMapping = {}
+      Array.from(odpResources).map(e => {
+        odpMapping[e.url] = e
+        return e
+      })
+
+      // mapping url => resource ID in udata
+      const odpIds = {}
+      dataset.resources.filter(e => { return e.format === 'html' }).map(e => {
+        odpIds[e.url] = e.id
+        return e
+      })
+
+      // which resources should we delete, add, update?
+      const resToDelete = new Set([...odpUrls].filter(x => !dotstatUrlsSet.has(x)))
+      const resToAdd = new Set([...dotstatUrls].filter(x => !odpUrlsSet.has(x)))
+      const resToUpdate = new Set([...odpUrls].filter(x => dotstatUrlsSet.has(x) && (dotstatMapping[x].title !== odpMapping[x].title || dotstatMapping[x].description !== odpMapping[x].description)))
+
+      console.log('resToDelete', resToDelete)
+      console.log('resToAdd', resToAdd)
+      console.log('resToUpdate', resToUpdate)
+
       if (changesEnabled) {
+        // delete old resources
+        for (const url of resToDelete) {
+          console.log('deleting resource', odpIds[url], 'from dataset', dataset.id)
+          await deleteResource(dataset.id, odpIds[url])
+        }
+
+        // add new resources
+        for (const url of resToAdd) {
+          const res = dotstatMapping[url]
+          console.log('adding resource', url, 'to the dataset', dataset.id)
+          await createResource(dataset.id, res.title, res.description, res.url)
+        }
+
+        // update existing resources
+        for (const url of resToUpdate) {
+          const res = dotstatMapping[url]
+          console.log('updating resource', odpIds[url], 'in the dataset', dataset.id)
+          console.log('title', res.title, 'desc', res.description)
+          await updateResource(dataset.id, odpIds[url], res.title, res.description)
+        }
+
+        // update dataset metadata (tags, description, ...)
         await asUpdateDataset(resources, id, dataset, dotstatTags)
       }
     }
