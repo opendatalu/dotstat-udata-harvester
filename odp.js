@@ -16,7 +16,28 @@ async function getSyncedDatasets () {
   try {
     // FIXME: manage pagination, temporarily a large page size here
     // console.log(odpURL+"/datasets/?tag="+syncTag+"&page=1&page_size=200&organization="+orgId)
-    const res = await fetchThrottle(odpURL + '/datasets/?tag=' + syncTag + '&page=1&page_size=200&organization=' + orgId, {
+    const res = await fetchThrottle(odpURL + '/datasets/?tag=' + syncTag + '&page=1&page_size=500&organization=' + orgId, {
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+        'X-API-KEY': odpAPIKey
+      },
+      method: 'GET'
+    })
+    if (!res.ok) {
+      res.text().then(t => { throw t })
+    }
+    return res.json()
+  } catch (e) {
+    console.error(e)
+    return {}
+  }
+}
+
+async function getAllDatasets () {
+  try {
+    // FIXME: manage pagination, temporarily a large page size here
+    // console.log(odpURL+"/datasets/?tag="+syncTag+"&page=1&page_size=200&organization="+orgId)
+    const res = await fetchThrottle(odpURL + '/datasets/?page=1&page_size=500&organization=' + orgId, {
       headers: {
         Accept: 'application/json, text/plain, */*',
         'X-API-KEY': odpAPIKey
@@ -321,4 +342,4 @@ async function updateResourcesOrder (dsId, order) {
   }
 }
 
-export { getSyncedDatasets, getDataset, createDataset, deleteDataset, genTags, genResources, updateDataset, genDescription, uploadCSV, createResource, updateResource, updateResourcesOrder, deleteResource }
+export { getAllDatasets, getSyncedDatasets, getDataset, createDataset, deleteDataset, genTags, genResources, updateDataset, genDescription, uploadCSV, createResource, updateResource, updateResourcesOrder, deleteResource }
