@@ -32,24 +32,26 @@ async function getConfig () {
 }
 
 async function getData (topic) {
-  try {
-    const response = await fetchThrottle(process.env.dotstatURL + '/api/search', {
-      credentials: 'omit',
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-        'Content-Type': 'application/json;charset=utf-8'
-      },
-      body: '{"lang":"' + process.env.dotstatLang + '","search":"","facets":{"' + process.env.dotstatMainFacet + '":["' + topic + '"], "datasourceId":["' + process.env.dotstatDatasourceId + '"]},"rows":10000,"start":0}',
-      method: 'POST'
-    })
-    if (!response.ok) {
-      response.text().then(t => { throw t })
-    }
-    return response.json()
-  } catch (e) {
-    console.error(e)
-    return {}
+  const params = {
+    credentials: 'omit',
+    headers: {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': 'application/json;charset=utf-8'
+    },
+    body: '{"lang":"' + process.env.dotstatLang + '","search":"","facets":{"' + process.env.dotstatMainFacet + '":["' + topic + '"], "datasourceId":["' + process.env.dotstatDatasourceId + '"]},"rows":10000,"start":0, "sort": "score desc, sname asc, indexationDate desc"}',
+    method: 'POST'
   }
+  const response = await fetchThrottle(process.env.dotstatURL + '/api/search?tenant=default', params)
+  if (!response.ok) {
+    // some facets can have their access restricted, in this case we ignore them silently
+    if (response.status === 403) {
+      return {dataflows: []}
+    } else {
+      response.text().then(t => { console.error(t) })
+      return {}
+    }
+  }
+  return response.json()
 }
 
 // export a dataflow as CSV
