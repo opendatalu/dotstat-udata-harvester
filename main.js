@@ -2,17 +2,23 @@ import { getSyncedDatasets, createDataset, deleteDataset, getDataset, genTags, g
 import { eqSet, eqResources, fetchThrottle } from './utils.js'
 import dotenv from 'dotenv'
 import process from 'node:process'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 
 dotenv.config()
 
 const changesEnabled = true
 const syncCSV = false
 
+let proxyAgent = null
+if (process.env.https_proxy !== undefined) {
+  proxyAgent = new HttpsProxyAgent(process.env.https_proxy)
+}
+
 // the .stat platform has 2 interesting endpoints regarding metadata: /config and /search
 // the 2 following functions enable to get the data from these 2 endpoints
 async function getConfig () {
   try {
-    const res = await fetchThrottle(process.env.dotstatURL + '/api/config', {
+    const params = {
       credentials: 'omit',
       headers: {
         Accept: 'application/json, text/plain, */*',
@@ -20,7 +26,12 @@ async function getConfig () {
       },
       body: '{"lang":"' + process.env.dotstatLang + '","facets":{"datasourceId":["' + process.env.dotstatDatasourceId + '"]}}',
       method: 'POST'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const res = await fetchThrottle(process.env.dotstatURL + '/api/config', params)
     if (!res.ok) {
       res.text().then(t => { throw t })
     }
@@ -41,11 +52,15 @@ async function getData (topic) {
     body: '{"lang":"' + process.env.dotstatLang + '","search":"","facets":{"' + process.env.dotstatMainFacet + '":["' + topic + '"], "datasourceId":["' + process.env.dotstatDatasourceId + '"]},"rows":10000,"start":0, "sort": "score desc, sname asc, indexationDate desc"}',
     method: 'POST'
   }
+  if (proxyAgent !== null) {
+    params.agent = proxyAgent
+  }
+
   const response = await fetchThrottle(process.env.dotstatURL + '/api/search?tenant=default', params)
   if (!response.ok) {
     // some facets can have their access restricted, in this case we ignore them silently
     if (response.status === 403) {
-      return {dataflows: []}
+      return { dataflows: [] }
     } else {
       response.text().then(t => { console.error(t) })
       return {}
@@ -57,13 +72,18 @@ async function getData (topic) {
 // export a dataflow as CSV
 async function getCSV (id) {
   try {
-    const response = await fetchThrottle(`${process.env.dotstatURL}/rest/data/LU1,${id}/all?dimensionAtObservation=AllDimensions`, {
+    const params = {
       headers: {
         Accept: 'application/vnd.sdmx.data+csv;urn=true;file=true;labels=both',
         'Accept-Language': process.env.dotstatLang
       },
       method: 'GET'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const response = await fetchThrottle(`${process.env.dotstatURL}/rest/data/LU1,${id}/all?dimensionAtObservation=AllDimensions`, params)
     if (!response.ok) {
       response.text().then(t => { throw t })
     }

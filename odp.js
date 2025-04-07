@@ -3,6 +3,7 @@ import keywordExtractor from 'keyword-extractor'
 import dotenv from 'dotenv'
 import { fetchThrottle } from './utils.js'
 import { FormData, File } from 'node-fetch'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 
 dotenv.config()
 
@@ -12,17 +13,28 @@ const orgId = process.env.orgId
 const syncTag = process.env.syncTag
 const descTemplate = './' + ((process.env.descTemplate !== undefined) ? process.env.descTemplate : 'desc.ejs')
 
+let proxyAgent = null
+if (process.env.https_proxy !== undefined) {
+  proxyAgent = new HttpsProxyAgent(process.env.https_proxy)
+  console.log('Proxy set to:' + process.env.https_proxy)
+}
+
 async function getSyncedDatasets () {
   try {
     // FIXME: manage pagination, temporarily a large page size here
     // console.log(odpURL+"/datasets/?tag="+syncTag+"&page=1&page_size=200&organization="+orgId)
-    const res = await fetchThrottle(odpURL + '/datasets/?tag=' + syncTag + '&page=1&page_size=500&organization=' + orgId, {
+    const params = {
       headers: {
         Accept: 'application/json, text/plain, */*',
         'X-API-KEY': odpAPIKey
       },
       method: 'GET'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const res = await fetchThrottle(odpURL + '/datasets/?tag=' + syncTag + '&page=1&page_size=500&organization=' + orgId, params)
     if (!res.ok) {
       res.text().then(t => { throw t })
     }
@@ -37,13 +49,18 @@ async function getAllDatasets () {
   try {
     // FIXME: manage pagination, temporarily a large page size here
     // console.log(odpURL+"/datasets/?tag="+syncTag+"&page=1&page_size=200&organization="+orgId)
-    const res = await fetchThrottle(odpURL + '/datasets/?page=1&page_size=500&organization=' + orgId, {
+    const params = {
       headers: {
         Accept: 'application/json, text/plain, */*',
         'X-API-KEY': odpAPIKey
       },
       method: 'GET'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const res = await fetchThrottle(odpURL + '/datasets/?page=1&page_size=500&organization=' + orgId, params)
     if (!res.ok) {
       res.text().then(t => { throw t })
     }
@@ -141,7 +158,7 @@ async function createDataset (title, resources, remoteId, keywords, frequency) {
 async function createDatasetFromJSON (dataset) {
   if (dataset != null) {
     try {
-      const res = await fetchThrottle(odpURL + '/datasets/', {
+      const params = {
         headers: {
           Accept: 'application/json, text/plain, */*',
           'Content-Type': 'application/json;charset=utf-8',
@@ -149,7 +166,12 @@ async function createDatasetFromJSON (dataset) {
         },
         body: JSON.stringify(dataset),
         method: 'POST'
-      })
+      }
+      if (proxyAgent !== null) {
+        params.agent = proxyAgent
+      }
+
+      const res = await fetchThrottle(odpURL + '/datasets/', params)
 
       if (!res.ok) {
         res.text().then(t => { throw t })
@@ -166,14 +188,18 @@ async function createDatasetFromJSON (dataset) {
 
 async function deleteDataset (id) {
   try {
-    const res = await fetchThrottle(odpURL + '/datasets/' + id + '/', {
+    const params = {
       headers: {
         Accept: 'application/json, text/plain, */*',
         'Content-Type': 'application/json;charset=utf-8',
         'X-API-KEY': odpAPIKey
       },
       method: 'DELETE'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+    const res = await fetchThrottle(odpURL + '/datasets/' + id + '/', params)
 
     return (res.ok)
   } catch (e) {
@@ -184,14 +210,18 @@ async function deleteDataset (id) {
 
 async function getDataset (id) {
   try {
-    const res = await fetchThrottle(odpURL + '/datasets/' + id + '/', {
+    const params = {
       headers: {
         Accept: 'application/json, text/plain, */*',
         'Content-Type': 'application/json;charset=utf-8',
         'X-API-KEY': odpAPIKey
       },
       method: 'GET'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+    const res = await fetchThrottle(odpURL + '/datasets/' + id + '/', params)
     if (!res.ok) {
       res.text().then(t => { throw t })
     }
@@ -205,7 +235,7 @@ async function getDataset (id) {
 
 async function updateDataset (id, payload) {
   try {
-    const res = await fetchThrottle(odpURL + '/datasets/' + id + '/', {
+    const params = {
       headers: {
         Accept: 'application/json, text/plain, */*',
         'Content-Type': 'application/json;charset=utf-8',
@@ -213,7 +243,12 @@ async function updateDataset (id, payload) {
       },
       body: JSON.stringify(payload),
       method: 'PUT'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const res = await fetchThrottle(odpURL + '/datasets/' + id + '/', params)
     if (!res.ok) {
       res.text().then(t => { throw t })
     }
@@ -233,7 +268,7 @@ async function uploadCSV (filename, data, dsId) {
     formData.set('filename', filename)
     formData.set('file', file, filename)
 
-    const res = await fetchThrottle(odpURL + '/datasets/' + dsId + '/upload/', {
+    const params = {
       headers: {
         Accept: 'application/json',
         'Cache-Control': 'no-cache',
@@ -241,7 +276,12 @@ async function uploadCSV (filename, data, dsId) {
       },
       body: formData,
       method: 'POST'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const res = await fetchThrottle(odpURL + '/datasets/' + dsId + '/upload/', params)
     if (!res.ok) {
       res.text().then(t => { throw t })
     }
@@ -263,7 +303,8 @@ async function createResource (dsId, title, description, url) {
       type: 'main',
       url
     }
-    const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/`, {
+
+    const params = {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
@@ -271,7 +312,12 @@ async function createResource (dsId, title, description, url) {
       },
       body: JSON.stringify(body),
       method: 'POST'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/`, params)
     if (!res.ok) {
       res.text().then(t => { throw t })
     }
@@ -285,7 +331,8 @@ async function createResource (dsId, title, description, url) {
 async function updateResource (dsId, resId, title, description) {
   try {
     const body = { title, description }
-    const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/${resId}/`, {
+
+    const params = {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
@@ -293,7 +340,12 @@ async function updateResource (dsId, resId, title, description) {
       },
       body: JSON.stringify(body),
       method: 'PUT'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/${resId}/`, params)
     if (!res.ok) {
       res.text().then(t => { throw t })
     }
@@ -306,14 +358,19 @@ async function updateResource (dsId, resId, title, description) {
 
 async function deleteResource (dsId, resId) {
   try {
-    const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/${resId}/`, {
+    const params = {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
         'X-API-KEY': odpAPIKey
       },
       method: 'DELETE'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/${resId}/`, params)
     return res.ok
   } catch (e) {
     console.error(e)
@@ -323,7 +380,7 @@ async function deleteResource (dsId, resId) {
 
 async function updateResourcesOrder (dsId, order) {
   try {
-    const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/`, {
+    const params = {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
@@ -331,7 +388,12 @@ async function updateResourcesOrder (dsId, order) {
       },
       body: JSON.stringify(order),
       method: 'PUT'
-    })
+    }
+    if (proxyAgent !== null) {
+      params.agent = proxyAgent
+    }
+
+    const res = await fetchThrottle(`${odpURL}/datasets/${dsId}/resources/`, params)
     if (!res.ok) {
       res.text().then(t => { throw t })
     }
