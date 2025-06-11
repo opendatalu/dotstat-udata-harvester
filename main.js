@@ -56,7 +56,7 @@ async function getData (topic) {
     params.agent = proxyAgent
   }
 
-  const response = await fetchThrottle(process.env.dotstatURL + '/api/search?tenant=default', params)
+  const response = await fetchThrottle(process.env.dotstatURL + '/api/search?tenant=' + process.env.tenant, params)
   if (!response.ok) {
     // some facets can have their access restricted, in this case we ignore them silently
     if (response.status === 403) {
@@ -101,27 +101,37 @@ function getTopicLabel (topic) {
 
 // extract keywords from resources to include them on the dataset level
 function getKeywordsFromResources (resources, id) {
-  const keywords = resources.map(f => {
-    let maybeKw = f.description.match(/[Mm]ots-cl[ée]s\s?:?\s*(.*?)\s*-/)
-    if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
-      return maybeKw[1].toLowerCase().trim()
-    }
-    maybeKw = f.description.match(/[Mm]ots-cl[ée]s\s?:?\s*(.*?)$/)
-    if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
-      return maybeKw[1].toLowerCase().trim()
-    }
-    maybeKw = f.description.match(/[Kk]eywords:?\s*(.*?)\s+-/)
-    if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
-      return maybeKw[1].toLowerCase().trim()
-    }
-    maybeKw = f.description.match(/[Kk]eywords:?\s*(.*?)$/)
-    if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
-      return maybeKw[1].toLowerCase().trim()
-    }
-    console.log('Keywords not found in: ', id, 'desc:', f.description)
-    return undefined
-  }).filter(f => { return f !== undefined }).flatMap(f => { return f.split(',') }).map(f => { return f.replace(/[:;.]/g, '').trim().toLowerCase() }).map(f => { return f.replace(/[\s']/g, '-') })
+  const keywords = resources.map(f => findKeywords(f.description)).filter(f => { return f !== undefined }).flatMap(f => { return f.split(',') }).map(f => { return f.replace(/[:;.]/g, '').trim().toLowerCase() }).map(f => { return f.replace(/[\s']/g, '-') })
   return [...new Set(keywords)]
+}
+
+function findKeywords(description) {
+  let maybeKw = description.match(/[Mm]ots-cl[ée]s\s?:?\s*(.*?)\s*-/m)
+  if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+    return maybeKw[1].toLowerCase().trim()
+  }
+  maybeKw = description.match(/[Mm]ots-cl[ée]s\s?:?\s*(.*?)\s*</m)
+  if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+    return maybeKw[1].toLowerCase().trim()
+  }
+  maybeKw = description.match(/[Mm]ots-cl[ée]s\s?:?\s*(.*?)$/m)
+  if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+    return maybeKw[1].toLowerCase().trim()
+  }
+  maybeKw = description.match(/[Kk]eywords:?\s*(.*?)\s*-/m)
+  if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+    return maybeKw[1].toLowerCase().trim()
+  }
+  maybeKw = description.match(/[Kk]eywords:?\s*(.*?)\s*</m)
+  if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+    return maybeKw[1].toLowerCase().trim()
+  }
+  maybeKw = description.match(/[Kk]eywords:?\s*(.*?)$/m)
+  if ((maybeKw !== null) && (maybeKw[1] !== undefined)) {
+    return maybeKw[1].toLowerCase().trim()
+  }
+  console.log('Keywords not found in: desc:', description)
+  return undefined
 }
 
 function getFrequencyFromResources (resources) {
