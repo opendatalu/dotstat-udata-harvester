@@ -23,6 +23,11 @@ Copy the `.env-template` file into a file named `.env`. Adjust the following var
 - callRateNrCalls: this setting and the following are related to rate limiting. This is the max number of calls per period. By default 1.
 - callRateDuration: this setting defines the duration of the period for rate limiting in milliseconds. By default 1000ms.
 
+## Proxy
+
+To set up the usage of a proxy, you can use the variables https_proxy and no_proxy.
+https_proxy contains the URL of the proxy, and no_proxy contains a comma separated list of domains that should not be proxied.
+
 ## Run
 
 You can launch the synchronization with the command `npm run main`.

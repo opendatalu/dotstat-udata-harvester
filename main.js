@@ -3,6 +3,7 @@ import { eqSet, eqResources, fetchThrottle } from './utils.js'
 import dotenv from 'dotenv'
 import process from 'node:process'
 import { HttpsProxyAgent } from 'https-proxy-agent'
+import ProxyFromEnv from 'proxy-from-env'
 
 dotenv.config()
 
@@ -27,7 +28,7 @@ async function getConfig () {
       body: '{"lang":"' + process.env.dotstatLang + '","facets":{"datasourceId":["' + process.env.dotstatDatasourceId + '"]}}',
       method: 'POST'
     }
-    if (proxyAgent !== null) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
       params.agent = proxyAgent
     }
 
@@ -52,7 +53,7 @@ async function getData (topic) {
     body: '{"lang":"' + process.env.dotstatLang + '","search":"","facets":{"' + process.env.dotstatMainFacet + '":["' + topic + '"], "datasourceId":["' + process.env.dotstatDatasourceId + '"]},"rows":10000,"start":0, "sort": "score desc, sname asc, indexationDate desc"}',
     method: 'POST'
   }
-  if (proxyAgent !== null) {
+  if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
     params.agent = proxyAgent
   }
 
@@ -79,7 +80,7 @@ async function getCSV (id) {
       },
       method: 'GET'
     }
-    if (proxyAgent !== null) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
       params.agent = proxyAgent
     }
 

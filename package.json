@@ -6,10 +6,11 @@
   "dependencies": {
     "dotenv": "^16.0.0",
     "ejs": "^3.1.6",
+    "https-proxy-agent": "^7.0.6",
     "keyword-extractor": "0.0.21",
     "node-fetch": "^3.2.3",
-    "throttled-queue": "^2.1.2",
-    "https-proxy-agent": "^7.0.6"
+    "proxy-from-env": "^1.1.0",
+    "throttled-queue": "^2.1.2"
   },
   "devDependencies": {
     "eslint": "^8.54.0",
