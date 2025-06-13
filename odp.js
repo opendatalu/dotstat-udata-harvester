@@ -31,7 +31,7 @@ async function getSyncedDatasets () {
       },
       method: 'GET'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
 
@@ -57,7 +57,7 @@ async function getAllDatasets () {
       },
       method: 'GET'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
 
@@ -168,7 +168,7 @@ async function createDatasetFromJSON (dataset) {
         body: JSON.stringify(dataset),
         method: 'POST'
       }
-      if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+      if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
         params.agent = proxyAgent
       }
 
@@ -197,7 +197,7 @@ async function deleteDataset (id) {
       },
       method: 'DELETE'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
     const res = await fetchThrottle(odpURL + '/datasets/' + id + '/', params)
@@ -219,7 +219,7 @@ async function getDataset (id) {
       },
       method: 'GET'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
     const res = await fetchThrottle(odpURL + '/datasets/' + id + '/', params)
@@ -245,7 +245,7 @@ async function updateDataset (id, payload) {
       body: JSON.stringify(payload),
       method: 'PUT'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
 
@@ -278,7 +278,7 @@ async function uploadCSV (filename, data, dsId) {
       body: formData,
       method: 'POST'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
 
@@ -314,7 +314,7 @@ async function createResource (dsId, title, description, url) {
       body: JSON.stringify(body),
       method: 'POST'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
 
@@ -342,7 +342,7 @@ async function updateResource (dsId, resId, title, description) {
       body: JSON.stringify(body),
       method: 'PUT'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
 
@@ -367,7 +367,7 @@ async function deleteResource (dsId, resId) {
       },
       method: 'DELETE'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
 
@@ -390,7 +390,7 @@ async function updateResourcesOrder (dsId, order) {
       body: JSON.stringify(order),
       method: 'PUT'
     }
-    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(process.env.dotstatURL)) {
+    if (proxyAgent !== null && ProxyFromEnv.getProxyForUrl(odpURL)) {
       params.agent = proxyAgent
     }
 
