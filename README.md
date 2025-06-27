@@ -36,7 +36,7 @@ https_proxy contains the URL of the proxy, and no_proxy contains a comma separat
 ## Run
 
 You can launch the synchronization with the command `npm run main`.
-The script named `run-win.sh` launches the synchronization on Windows and creates a log file. Bash.exe is needed, it can be found in [git for Windows](https://git-scm.com/download/win).
+The script named `run.sh` launches the synchronization and creates a log file. On Windows, Bash.exe is needed, it can be found in [git for Windows](https://git-scm.com/download/win).
 
 ## License
 This software is (c) [Information and press service](https://sip.gouvernement.lu/en.html) of the luxembourgish government and licensed under the MIT license.
