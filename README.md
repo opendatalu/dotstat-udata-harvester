@@ -4,6 +4,11 @@ an harvester for the [.stat suite](https://siscc.org/stat-suite/).
 This harvester will download the metadata from a .stat instance and create datasets on an [udata-based open data portal](https://github.com/opendatateam/udata).
 It is currently used to synchronize [data.public.lu](https://data.public.lu) with the [LUSTAT database](https://lustat.statec.lu/).
 
+## Software requirements
+
+This software runs with [Node.js](https://nodejs.org/en), it has been tested with Node v20.
+
+
 ## Configuration
 
 Copy the `.env-template` file into a file named `.env`. Adjust the following variales to your needs:
@@ -19,7 +24,7 @@ Copy the `.env-template` file into a file named `.env`. Adjust the following var
 - dotstatDatasourceId: .stat datasource id.
 - dotstatLang: .stat language code. Ex: "en"
 - tenant: the .stat tenant. Ex: "default"
-- descTemplate: template file to be used to generate a description for each dataset. This template is in ejs format. By default, `desc.ejs` will be used.
+- descTemplate: template file to be used to generate a description for each dataset. This template is in [ejs](https://ejs.co/) format. By default, `desc.ejs` will be used.
 - callRateNrCalls: this setting and the following are related to rate limiting. This is the max number of calls per period. By default 1.
 - callRateDuration: this setting defines the duration of the period for rate limiting in milliseconds. By default 1000ms.
 
