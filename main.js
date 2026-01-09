@@ -151,6 +151,7 @@ function getFrequencyFromResources (resources) {
     'bi-annuel': 'semiannual',
     biannuel: 'semiannual',
     annuelle: 'annual',
+    anuelle: 'annual',
     annuel: 'annual',
     'révision annuelle': 'annual',
     yearly: 'annual',
@@ -178,7 +179,7 @@ function getFrequencyFromResources (resources) {
   }
 
   let freqs = resources.map(f => {
-    let maybeFreq = f.description.match(/[Pp][ée]riodicit[éey]\s?:?\s+(.*?)\s+-/)
+    let maybeFreq = f.description.match(/[Pp][ée]riodicit[éey]\s?:?\s+(.*?)\s+[-\(]./)
     if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
       return maybeFreq[1].toLowerCase().trim()
     }
@@ -186,7 +187,7 @@ function getFrequencyFromResources (resources) {
     if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
       return maybeFreq[1].toLowerCase().trim()
     }
-    maybeFreq = f.description.match(/[Ff]r[ée]quenc[ey]\s?:?\s+(.*?)\s+-/)
+    maybeFreq = f.description.match(/[Ff]r[ée]quenc[ey]\s?:?\s+(.*?)\s+-[-\(]./)
     if ((maybeFreq !== null) && (maybeFreq[1] !== undefined)) {
       return maybeFreq[1].toLowerCase().trim()
     }
