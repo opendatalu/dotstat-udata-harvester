@@ -164,6 +164,8 @@ function getFrequencyFromResources (resources) {
     triennal: 'triennial',
     quinquennale: 'quinquennial',
     quinquennal: 'quinquennial',
+    décennale: 'decennial',
+    décennal: 'decennial',
     variable: 'irregular'
   }
   // every 10 years is not supported by udata
@@ -453,4 +455,4 @@ async function main () {
   }
 }
 
-main().then(() => { console.log((new Date()).toLocaleString(), 'Sync successful') }).catch(e => { console.error(e); process.exitCode = 1 })
+main().then(() => { console.log((new Date()).toLocaleString(), 'Sync successful') }).catch(e => { console.error('Error', e); process.exitCode = 1 })
