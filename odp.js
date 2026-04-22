@@ -22,8 +22,6 @@ if (process.env.https_proxy !== undefined) {
 
 async function getSyncedDatasets () {
   try {
-    // FIXME: manage pagination, temporarily a large page size here
-    // console.log(odpURL+"/datasets/?tag="+syncTag+"&page=1&page_size=200&organization="+orgId)
     const params = {
       headers: {
         Accept: 'application/json, text/plain, */*',
@@ -35,21 +33,33 @@ async function getSyncedDatasets () {
       params.agent = proxyAgent
     }
 
-    const res = await fetchThrottle(odpURL + '/datasets/?tag=' + syncTag + '&page=1&page_size=500&organization=' + orgId, params)
-    if (!res.ok) {
-      res.text().then(t => { throw t })
+    let allData = []
+    let page = 1
+    const pageSize = 100
+
+    while (true) {
+      const res = await fetchThrottle(`${odpURL}/datasets/?tag=${syncTag}&page=${page}&page_size=${pageSize}&organization=${orgId}`, params)
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text)
+      }
+      const json = await res.json()
+      allData = allData.concat(json.data)
+      if (allData.length >= json.total || !json.next_page) {
+        break
+      }
+      page++
     }
-    return res.json()
+
+    return { data: allData }
   } catch (e) {
     console.error(e)
-    return {}
+    return { data: [] }
   }
 }
 
 async function getAllDatasets () {
   try {
-    // FIXME: manage pagination, temporarily a large page size here
-    // console.log(odpURL+"/datasets/?tag="+syncTag+"&page=1&page_size=200&organization="+orgId)
     const params = {
       headers: {
         Accept: 'application/json, text/plain, */*',
@@ -61,14 +71,28 @@ async function getAllDatasets () {
       params.agent = proxyAgent
     }
 
-    const res = await fetchThrottle(odpURL + '/datasets/?page=1&page_size=500&organization=' + orgId, params)
-    if (!res.ok) {
-      res.text().then(t => { throw t })
+    let allData = []
+    let page = 1
+    const pageSize = 100
+
+    while (true) {
+      const res = await fetchThrottle(`${odpURL}/datasets/?page=${page}&page_size=${pageSize}&organization=${orgId}`, params)
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text)
+      }
+      const json = await res.json()
+      allData = allData.concat(json.data)
+      if (allData.length >= json.total || !json.next_page) {
+        break
+      }
+      page++
     }
-    return res.json()
+
+    return { data: allData }
   } catch (e) {
     console.error(e)
-    return {}
+    return { data: [] }
   }
 }
 

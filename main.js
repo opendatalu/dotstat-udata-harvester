@@ -230,37 +230,9 @@ function getFrequencyFromResources (resources) {
   return freq
 }
 
-// not all topics are mapped to a dataset. We need to filter them
-function filterTopics (data) {
-  function getPathLength (path) {
-    return (path.split('|').length - 1)
-  }
-
-  function pathCleanup (path) {
-    return path.replace(/^\d+\|/, '')
-  }
-
-  function countChildren (path, data) {
-    path = pathCleanup(path)
-    let count = 0
-    data.forEach(e => {
-      const val = pathCleanup(e.val)
-      if (val !== path && val.startsWith(path)) {
-        count += 1
-      }
-    })
-    return count
-  }
-
-  let paths = data.facets[process.env.dotstatMainFacet].buckets
-  paths = paths.map(e => {
-    e.children = countChildren(e.val, paths)
-    e.depth = getPathLength(e.val)
-    return e
-  })
-
-  // we keep only topics without children
-  return paths.filter(f => { return (f.children === 0) })
+// return all topics from the config, regardless of whether they are leaf nodes or not
+function getAllTopics (data) {
+  return data.facets[process.env.dotstatMainFacet].buckets
 }
 
 async function asCreateDataset (resources, id) {
@@ -310,9 +282,23 @@ async function main () {
   const odpIds = new Set(d.data.map(e => { return e.extras.dotstat_id }))
 
   const data = await getConfig()
-  const filtered = filterTopics(data).map(e => { return e.val })
-  const topicsSet = new Set(filtered)
-  const topicsArr = [...topicsSet]
+  // Fetch data for ALL topics (including non-leaf nodes) to find which ones have dataflows
+  const allTopics = getAllTopics(data).map(e => e.val)
+  console.log(`Fetching data for ${allTopics.length} topics from dotstat...`)
+  const rawResults = await Promise.all(allTopics.map(t => getData(t)))
+
+  // Build resources map: only include topics that have at least one dataflow
+  const resources = {}
+  for (let i = 0; i < allTopics.length; i++) {
+    const dfs = rawResults[i].dataflows || []
+    if (dfs.length > 0) {
+      resources[allTopics[i]] = dfs
+    }
+  }
+
+  const topicsArr = Object.keys(resources)
+  const topicsSet = new Set(topicsArr)
+  console.log(`Found ${topicsArr.length} topics with dataflows out of ${allTopics.length} total topics`)
 
   // get the list of items that were added, deleted, changed
   const toDelete = new Set([...odpIds].filter(x => !topicsSet.has(x)))
@@ -335,15 +321,6 @@ async function main () {
       const result = await deleteDataset(id)
       console.log('Dataset deletion', (result) ? 'succeeded' : 'failed', 'for', id)
     }
-  }
-
-  const r = await Promise.all(topicsArr.map(t => { return getData(t) }))
-  const dataflows = r.map(d => d.dataflows)
-
-  // get resources for each topic
-  const resources = {}
-  for (let i = 0; i < topicsArr.length; i++) {
-    resources[topicsArr[i]] = dataflows[i]
   }
 
   // add what needs to be added
@@ -452,6 +429,30 @@ async function main () {
         await asUpdateDataset(resources, id, dataset, dotstatTags)
       }
     }
+  }
+
+  // Post-sync count verification
+  const dotstatTopicCount = topicsArr.length
+  const dotstatDataflowCount = Object.values(resources).reduce((sum, dfs) => sum + dfs.length, 0)
+
+  const syncedAfter = await getSyncedDatasets()
+  const udataDatasetCount = syncedAfter.data.length
+  const udataResourceCount = syncedAfter.data.reduce((sum, ds) => sum + ds.resources.filter(r => r.format === 'html').length, 0)
+
+  console.log('\n=== Sync count verification ===')
+  console.log(`dotstat: ${dotstatTopicCount} topics with dataflows, ${dotstatDataflowCount} total dataflows`)
+  console.log(`udata:   ${udataDatasetCount} synced datasets, ${udataResourceCount} total HTML resources`)
+
+  if (dotstatTopicCount !== udataDatasetCount) {
+    console.warn(`WARNING: Dataset count mismatch: ${dotstatTopicCount} topics in dotstat vs ${udataDatasetCount} datasets in udata`)
+  } else {
+    console.log('OK: Dataset count matches')
+  }
+
+  if (dotstatDataflowCount !== udataResourceCount) {
+    console.warn(`WARNING: Dataflow count mismatch: ${dotstatDataflowCount} in dotstat vs ${udataResourceCount} resources in udata`)
+  } else {
+    console.log('OK: Dataflow/resource count matches')
   }
 }
 
